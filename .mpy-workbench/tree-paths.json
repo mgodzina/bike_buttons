@@ -18,8 +18,20 @@
     "depth": 0
   },
   {
-    "fullPath": "/config.py",
-    "name": "config.py",
+    "fullPath": "/config_hardware.py",
+    "name": "config_hardware.py",
+    "isDir": false,
+    "depth": 0
+  },
+  {
+    "fullPath": "/config_protocol.py",
+    "name": "config_protocol.py",
+    "isDir": false,
+    "depth": 0
+  },
+  {
+    "fullPath": "/hardware.py",
+    "name": "hardware.py",
     "isDir": false,
     "depth": 0
   },
@@ -54,26 +66,38 @@
     "depth": 1
   },
   {
-    "fullPath": "/lib/lora/__init__.mpy",
-    "name": "__init__.mpy",
-    "isDir": true,
+    "fullPath": "/lib/lora/VENDOR.txt",
+    "name": "VENDOR.txt",
+    "isDir": false,
     "depth": 2
   },
   {
-    "fullPath": "/lib/lora/modem.mpy",
-    "name": "modem.mpy",
-    "isDir": true,
+    "fullPath": "/lib/lora/__init__.py",
+    "name": "__init__.py",
+    "isDir": false,
     "depth": 2
   },
   {
-    "fullPath": "/lib/lora/sx126x.mpy",
-    "name": "sx126x.mpy",
-    "isDir": true,
+    "fullPath": "/lib/lora/modem.py",
+    "name": "modem.py",
+    "isDir": false,
+    "depth": 2
+  },
+  {
+    "fullPath": "/lib/lora/sx126x.py",
+    "name": "sx126x.py",
+    "isDir": false,
     "depth": 2
   },
   {
     "fullPath": "/lib/lora/sync_modem.mpy",
     "name": "sync_modem.mpy",
+    "isDir": true,
+    "depth": 2
+  },
+  {
+    "fullPath": "/lib/lora/sync_modem.py",
+    "name": "sync_modem.py",
     "isDir": false,
     "depth": 2
   },
@@ -86,6 +110,24 @@
   {
     "fullPath": "/main.py",
     "name": "main.py",
+    "isDir": false,
+    "depth": 0
+  },
+  {
+    "fullPath": "/process.py",
+    "name": "process.py",
+    "isDir": false,
+    "depth": 0
+  },
+  {
+    "fullPath": "/system_configurator.py",
+    "name": "system_configurator.py",
+    "isDir": false,
+    "depth": 0
+  },
+  {
+    "fullPath": "/terminal.py",
+    "name": "terminal.py",
     "isDir": false,
     "depth": 0
   }

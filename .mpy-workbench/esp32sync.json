@@ -1,12 +1,12 @@
 {
   "version": 1,
-  "syncId": "63e2e725-425f-4f9c-8aee-01707521c338",
+  "syncId": "5d57f075-b105-4a9c-89e4-b542cc94006a",
   "root": "/home/mgodzina/dev/esp32_micropython",
-  "generatedAt": 1787239787736,
+  "generatedAt": 1787247308015,
   "files": {
     "ble_terminal.py": {
-      "size": 6027,
-      "mtime": 1787230871015
+      "size": 7101,
+      "mtime": 1787245459966
     },
     "boot.py": {
       "size": 139,
@@ -16,9 +16,17 @@
       "size": 35,
       "mtime": 1787230631456
     },
-    "config.py": {
-      "size": 2591,
-      "mtime": 1787230632366
+    "config_hardware.py": {
+      "size": 1421,
+      "mtime": 1787242276865
+    },
+    "config_protocol.py": {
+      "size": 419,
+      "mtime": 1787242592230
+    },
+    "hardware.py": {
+      "size": 3103,
+      "mtime": 1787245433308
     },
     "lib/DIYables_MicroPython_Button/DIYables_MicroPython_Button.py": {
       "size": 4789,
@@ -28,17 +36,45 @@
       "size": 90,
       "mtime": 1787143837280
     },
-    "lib/lora/sync_modem.mpy": {
-      "size": 638,
-      "mtime": 1787143837890
+    "lib/lora/VENDOR.txt": {
+      "size": 244,
+      "mtime": 1787247161374
+    },
+    "lib/lora/__init__.py": {
+      "size": 951,
+      "mtime": 1787247158901
+    },
+    "lib/lora/modem.py": {
+      "size": 18275,
+      "mtime": 1787247160549
+    },
+    "lib/lora/sx126x.py": {
+      "size": 34740,
+      "mtime": 1787247161369
+    },
+    "lib/lora/sync_modem.py": {
+      "size": 3509,
+      "mtime": 1787247160937
     },
     "lora_msg.py": {
       "size": 1405,
       "mtime": 1787215215485
     },
     "main.py": {
-      "size": 26141,
-      "mtime": 1787238698555
+      "size": 1717,
+      "mtime": 1787247168605
+    },
+    "process.py": {
+      "size": 11890,
+      "mtime": 1787245437546
+    },
+    "system_configurator.py": {
+      "size": 2591,
+      "mtime": 1787230632366
+    },
+    "terminal.py": {
+      "size": 8924,
+      "mtime": 1787244658791
     }
   }
 }

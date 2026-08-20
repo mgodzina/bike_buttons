@@ -1,52 +1,84 @@
-# Board wiring and low-level hardware constants (Heltec Wireless Stick Lite V3).
+# Physical buttons and hold-to-toggle BLE handling.
+import time
 from machine import Pin
+from DIYables_MicroPython_Button import Button
+import ble_terminal
+from config_hardware import *
+from config_protocol import *
 
-# ----- Pin assignments -----
-# Breadboard / temporary mapping (override final board wiring here).
-PIN_LED_INFO = 2
-PIN_BTN_USER = 17
-PIN_BTN_1 = 5
-PIN_BTN_2 = 6
-PIN_BTN_3 = 0
-PIN_BTN_4 = 18
-PIN_BTN_5 = 19
-PIN_BTN_6 = 20
-PIN_LED_1 = 21   # yes
-PIN_LED_2 = 1    # no
-PIN_LED_3 = 35   # clear (onboard LED for now)
-PIN_LED_4 = 45   # fuel
-PIN_LED_5 = 46   # parking
-PIN_LED_6 = 3    # emergency
 
-# Final board targets (for reference when leaving breadboard):
-# PIN_LED_INFO = 35
-# PIN_BTN_USER = 0
-# PIN_BTN_3 = 17
-# PIN_LED_3 = 2
+class Buttons:
+    def __init__(self):
+        self.btn_user = Button(Pin(PIN_BTN_USER, Pin.IN, Pin.PULL_UP))
+        self.btn_1 = Button(Pin(PIN_BTN_1, Pin.IN, Pin.PULL_UP))
+        self.btn_2 = Button(Pin(PIN_BTN_2, Pin.IN, Pin.PULL_UP))
+        self.btn_3 = Button(Pin(PIN_BTN_3, Pin.IN, Pin.PULL_UP))
+        self.btn_4 = Button(Pin(PIN_BTN_4, Pin.IN, Pin.PULL_UP))
+        self.btn_5 = Button(Pin(PIN_BTN_5, Pin.IN, Pin.PULL_UP))
+        self.btn_6 = Button(Pin(PIN_BTN_6, Pin.IN, Pin.PULL_UP))
+        self._buttons = {
+            "btn_user": self.btn_user,
+            "btn_1": self.btn_1,
+            "btn_2": self.btn_2,
+            "btn_3": self.btn_3,
+            "btn_4": self.btn_4,
+            "btn_5": self.btn_5,
+            "btn_6": self.btn_6,
+        }
+        self._ble_hold_start = None
+        self._ble_hold_fired = False
 
-# ----- LEDs -----
-leds = {
-    "info": Pin(PIN_LED_INFO, Pin.OUT),
-    "yes": Pin(PIN_LED_1, Pin.OUT),
-    "no": Pin(PIN_LED_2, Pin.OUT),
-    "clear": Pin(PIN_LED_3, Pin.OUT),
-    "fuel": Pin(PIN_LED_4, Pin.OUT),
-    "parking": Pin(PIN_LED_5, Pin.OUT),
-    "emergency": Pin(PIN_LED_6, Pin.OUT),
-}
+    def loop(self):
+        for btn in self._buttons.values():
+            btn.loop()
 
-BLINK_SLOW_MS = 500    # waiting for ACK
-BLINK_FAST_MS = 150    # communication broken
-LED_NOTIFY_MS = 120    # half-period for led_notify() flashes
-LED_MODE_STATIC = 0
-LED_MODE_BLINK_SLOW = 1
-LED_MODE_BLINK_FAST = 2
-BLINK_INTERVAL_MS = {
-    LED_MODE_BLINK_SLOW: BLINK_SLOW_MS,
-    LED_MODE_BLINK_FAST: BLINK_FAST_MS,
-}
+    def check_buttons(self, device):
+        self._check_ble_hold(device)
+        for name, btn in self._buttons.items():
+            if name == BLE_TOGGLE_BTN:
+                continue  # short/long press handled in _check_ble_hold
+            if btn.is_pressed():
+                self.execute_button(device, name)
 
-# ----- BLE toggle (hold button) -----
-# Change BLE_TOGGLE_BTN to "btn_1" … "btn_6" to use a different key.
-BLE_TOGGLE_BTN = "btn_user"
-BLE_TOGGLE_HOLD_MS = 5000
+    def _check_ble_hold(self, device):
+        btn = self._buttons[BLE_TOGGLE_BTN]
+        pressed = btn.get_state() == btn.pressed_state
+        now = time.ticks_ms()
+        if pressed:
+            if self._ble_hold_start is None:
+                self._ble_hold_start = now
+                self._ble_hold_fired = False
+            elif (
+                not self._ble_hold_fired
+                and time.ticks_diff(now, self._ble_hold_start) >= BLE_TOGGLE_HOLD_MS
+            ):
+                ble_terminal.toggle()
+                self._ble_hold_fired = True
+        else:
+            if self._ble_hold_start is not None and not self._ble_hold_fired:
+                self.execute_button(device, BLE_TOGGLE_BTN)
+            self._ble_hold_start = None
+            self._ble_hold_fired = False
+
+    def execute_button(self, device, button_name):
+        if button_name == "btn_user":
+            print("User button pressed")
+            return
+        if button_name == "btn_1":
+            device.set_state(confirmation=CONFIRMATION_YES)
+        elif button_name == "btn_2":
+            device.set_state(confirmation=CONFIRMATION_NO)
+        elif button_name == "btn_3":
+            device.clear_state()
+            device.send_clear()
+            return
+        elif button_name == "btn_4":
+            device.set_state(status=STATUS_FUEL)
+        elif button_name == "btn_5":
+            device.set_state(status=STATUS_PARKING)
+        elif button_name == "btn_6":
+            device.set_state(status=STATUS_EMERGENCY)
+        else:
+            print("Unknown button:", button_name)
+            return
+        device.send_state()

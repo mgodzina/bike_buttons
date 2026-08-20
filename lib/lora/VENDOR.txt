@@ -1,0 +1,4 @@
+Vendored from micropython/micropython-lib (micropython/lora):
+  lora, lora-sync, lora-sx126x
+Source: https://github.com/micropython/micropython-lib/tree/master/micropython/lora
+Equivalent to: mpremote mip install --no-mpy lora-sx126x lora-sync

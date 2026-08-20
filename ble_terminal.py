@@ -1,5 +1,5 @@
 # Nordic UART Service (BLE) for phone terminal access.
-# Keep this module self-contained; main.py only starts it and polls for chars.
+# Session API: configure / start / stop / toggle / get
 
 import os
 import struct
@@ -177,8 +177,61 @@ class BleTerminal:
         self._ble.active(False)
 
 
-def start(name="lora-cfg", mirror_stdout=True):
-    ble = BleTerminal(name=name)
+# ----- Session helpers (used by main / hardware / terminal) -----
+_instance = None
+_name = "lora-cfg"
+_on_start = None
+_on_stop = None
+
+
+def configure(name=None, on_start=None, on_stop=None):
+    """Set advertising name (str or callable) and optional start/stop hooks."""
+    global _name, _on_start, _on_stop
+    if name is not None:
+        _name = name
+    if on_start is not None:
+        _on_start = on_start
+    if on_stop is not None:
+        _on_stop = on_stop
+
+
+def _resolve_name(name=None):
+    if name is not None:
+        return name
+    return _name() if callable(_name) else _name
+
+
+def get():
+    return _instance
+
+
+def start(name=None, mirror_stdout=True):
+    global _instance
+    if _instance is not None:
+        return _instance
+    use_name = _resolve_name(name)
+    _instance = BleTerminal(name=use_name)
     if mirror_stdout:
-        ble.attach_stdout()
-    return ble
+        _instance.attach_stdout()
+    print("BLE on ({})".format(use_name))
+    if _on_start:
+        _on_start()
+    return _instance
+
+
+def stop():
+    global _instance
+    if _instance is None:
+        return
+    _instance.close()
+    _instance = None
+    print("BLE off")
+    if _on_stop:
+        _on_stop()
+
+
+def toggle():
+    if _instance is None:
+        start()
+    else:
+        stop()
