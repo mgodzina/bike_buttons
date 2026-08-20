@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "syncId": "63e2e725-425f-4f9c-8aee-01707521c338",
+  "root": "/home/mgodzina/dev/esp32_micropython",
+  "generatedAt": 1787239787736,
+  "files": {
+    "ble_terminal.py": {
+      "size": 6027,
+      "mtime": 1787230871015
+    },
+    "boot.py": {
+      "size": 139,
+      "mtime": 1787230631066
+    },
+    "config.json": {
+      "size": 35,
+      "mtime": 1787230631456
+    },
+    "config.py": {
+      "size": 2591,
+      "mtime": 1787230632366
+    },
+    "lib/DIYables_MicroPython_Button/DIYables_MicroPython_Button.py": {
+      "size": 4789,
+      "mtime": 1787143836830
+    },
+    "lib/DIYables_MicroPython_Button/__init__.py": {
+      "size": 90,
+      "mtime": 1787143837280
+    },
+    "lib/lora/sync_modem.mpy": {
+      "size": 638,
+      "mtime": 1787143837890
+    },
+    "lora_msg.py": {
+      "size": 1405,
+      "mtime": 1787215215485
+    },
+    "main.py": {
+      "size": 26141,
+      "mtime": 1787238698555
+    }
+  }
+}
