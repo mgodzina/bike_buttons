@@ -213,7 +213,7 @@ def start(name=None, mirror_stdout=True):
     _instance = BleTerminal(name=use_name)
     if mirror_stdout:
         _instance.attach_stdout()
-    print("BLE on ({})".format(use_name))
+    print(f"BLE on ({use_name})")
     if _on_start:
         _on_start()
     return _instance

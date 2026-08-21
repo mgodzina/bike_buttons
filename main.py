@@ -1,10 +1,11 @@
 # LoRa driver is vendored in lib/lora (lora-sx126x + lora-sync from micropython-lib).
+import time
 import lora_msg
 import ble_terminal
 import system_configurator as config
 from terminal import Terminal, StatePrinter
 from hardware import Buttons
-from process import Device
+from app import App
 from config_hardware import BLE_TOGGLE_BTN, BLE_TOGGLE_HOLD_MS
 
 # ----- Identity / network (config.json on flash) -----
@@ -20,33 +21,34 @@ elif term.sender_id not in term.devices:
 print("Initializing LoRa...")
 modem = lora_msg.create_modem()
 print("LoRa ready")
-device = Device(term.sender_id, term.buddies, modem)
-device.set_all_leds_off()
+app = App(term.sender_id, term.buddies, modem)
+app.set_all_leds_off()
 buttons = Buttons()
 
 ble_terminal.configure(
-    name=lambda: "lora-{}".format(term.sender_id),
-    on_start=lambda: device.led_notify(3),
-    on_stop=lambda: device.led_notify(2),
+    name=lambda: f"lora-{term.sender_id}",
+    on_start=lambda: app.led_notify(3),
+    on_stop=lambda: app.led_notify(2),
 )
 term.on_ble_toggle = ble_terminal.toggle
 
 state_printer = StatePrinter()
 term.print_help()
-print("BLE: hold", BLE_TOGGLE_BTN, "for", BLE_TOGGLE_HOLD_MS // 1000, "s to toggle")
+print(f"BLE: hold {BLE_TOGGLE_BTN} for {BLE_TOGGLE_HOLD_MS // 1000} s to toggle")
 
 # ----- Main loop -----
 while True:
     buttons.loop()
-    buttons.check_buttons(device)
+    buttons.check_buttons(app)
     ble = ble_terminal.get()
-    term.poll(buttons, device, ble)
-    device.start_listening()
-    device.check_rx()
-    device.check_timers()
-    device.update_leds_state()
-    device.update_leds_mode()
-    device.apply_leds()
-    state_printer.print_state(device)
+    term.poll(buttons, app, ble)
+    app.start_listening()
+    app.check_rx()
+    app.check_timers()
+    app.update_leds_state()
+    app.update_leds_mode()
+    app.apply_leds()
+    state_printer.print_state(app)
     if ble is not None:
         ble.poll_tx()
+    time.sleep_ms(1)

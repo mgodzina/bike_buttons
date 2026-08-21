@@ -3,27 +3,50 @@ import time
 from machine import Pin
 from DIYables_MicroPython_Button import Button
 import ble_terminal
-from config_hardware import *
-from config_protocol import *
+from config_hardware import (
+    PIN_BTN_USER,
+    PIN_BTN_1,
+    PIN_BTN_2,
+    PIN_BTN_3,
+    PIN_BTN_4,
+    PIN_BTN_5,
+    PIN_BTN_6,
+    BLE_TOGGLE_BTN,
+    BLE_TOGGLE_HOLD_MS,
+)
+from config_protocol import (
+    CONFIRMATION_YES,
+    CONFIRMATION_NO,
+    STATUS_FUEL,
+    STATUS_PARKING,
+    STATUS_EMERGENCY,
+)
+
+_BTN_PINS = (
+    ("btn_user", PIN_BTN_USER),
+    ("btn_1", PIN_BTN_1),
+    ("btn_2", PIN_BTN_2),
+    ("btn_3", PIN_BTN_3),
+    ("btn_4", PIN_BTN_4),
+    ("btn_5", PIN_BTN_5),
+    ("btn_6", PIN_BTN_6),
+)
+
+# Maps button name -> kwargs for App.set_state(**kwargs); btn_3 is CLEAR (special).
+_BUTTON_STATE = {
+    "btn_1": {"confirmation": CONFIRMATION_YES},
+    "btn_2": {"confirmation": CONFIRMATION_NO},
+    "btn_4": {"status": STATUS_FUEL},
+    "btn_5": {"status": STATUS_PARKING},
+    "btn_6": {"status": STATUS_EMERGENCY},
+}
 
 
 class Buttons:
     def __init__(self):
-        self.btn_user = Button(Pin(PIN_BTN_USER, Pin.IN, Pin.PULL_UP))
-        self.btn_1 = Button(Pin(PIN_BTN_1, Pin.IN, Pin.PULL_UP))
-        self.btn_2 = Button(Pin(PIN_BTN_2, Pin.IN, Pin.PULL_UP))
-        self.btn_3 = Button(Pin(PIN_BTN_3, Pin.IN, Pin.PULL_UP))
-        self.btn_4 = Button(Pin(PIN_BTN_4, Pin.IN, Pin.PULL_UP))
-        self.btn_5 = Button(Pin(PIN_BTN_5, Pin.IN, Pin.PULL_UP))
-        self.btn_6 = Button(Pin(PIN_BTN_6, Pin.IN, Pin.PULL_UP))
         self._buttons = {
-            "btn_user": self.btn_user,
-            "btn_1": self.btn_1,
-            "btn_2": self.btn_2,
-            "btn_3": self.btn_3,
-            "btn_4": self.btn_4,
-            "btn_5": self.btn_5,
-            "btn_6": self.btn_6,
+            name: Button(Pin(pin, Pin.IN, Pin.PULL_UP))
+            for name, pin in _BTN_PINS
         }
         self._ble_hold_start = None
         self._ble_hold_fired = False
@@ -32,15 +55,15 @@ class Buttons:
         for btn in self._buttons.values():
             btn.loop()
 
-    def check_buttons(self, device):
-        self._check_ble_hold(device)
+    def check_buttons(self, app):
+        self._check_ble_hold(app)
         for name, btn in self._buttons.items():
             if name == BLE_TOGGLE_BTN:
                 continue  # short/long press handled in _check_ble_hold
             if btn.is_pressed():
-                self.execute_button(device, name)
+                self.execute_button(app, name)
 
-    def _check_ble_hold(self, device):
+    def _check_ble_hold(self, app):
         btn = self._buttons[BLE_TOGGLE_BTN]
         pressed = btn.get_state() == btn.pressed_state
         now = time.ticks_ms()
@@ -56,29 +79,21 @@ class Buttons:
                 self._ble_hold_fired = True
         else:
             if self._ble_hold_start is not None and not self._ble_hold_fired:
-                self.execute_button(device, BLE_TOGGLE_BTN)
+                self.execute_button(app, BLE_TOGGLE_BTN)
             self._ble_hold_start = None
             self._ble_hold_fired = False
 
-    def execute_button(self, device, button_name):
+    def execute_button(self, app, button_name):
         if button_name == "btn_user":
             print("User button pressed")
             return
-        if button_name == "btn_1":
-            device.set_state(confirmation=CONFIRMATION_YES)
-        elif button_name == "btn_2":
-            device.set_state(confirmation=CONFIRMATION_NO)
-        elif button_name == "btn_3":
-            device.clear_state()
-            device.send_clear()
+        if button_name == "btn_3":
+            app.clear_state()
+            app.send_clear()
             return
-        elif button_name == "btn_4":
-            device.set_state(status=STATUS_FUEL)
-        elif button_name == "btn_5":
-            device.set_state(status=STATUS_PARKING)
-        elif button_name == "btn_6":
-            device.set_state(status=STATUS_EMERGENCY)
-        else:
-            print("Unknown button:", button_name)
+        kwargs = _BUTTON_STATE.get(button_name)
+        if kwargs is None:
+            print(f"Unknown button: {button_name}")
             return
-        device.send_state()
+        app.set_state(**kwargs)
+        app.send_state()

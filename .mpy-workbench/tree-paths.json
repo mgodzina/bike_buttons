@@ -1,5 +1,11 @@
 [
   {
+    "fullPath": "/app.py",
+    "name": "app.py",
+    "isDir": false,
+    "depth": 0
+  },
+  {
     "fullPath": "/ble_terminal.py",
     "name": "ble_terminal.py",
     "isDir": false,
@@ -90,12 +96,6 @@
     "depth": 2
   },
   {
-    "fullPath": "/lib/lora/sync_modem.mpy",
-    "name": "sync_modem.mpy",
-    "isDir": true,
-    "depth": 2
-  },
-  {
     "fullPath": "/lib/lora/sync_modem.py",
     "name": "sync_modem.py",
     "isDir": false,
@@ -110,12 +110,6 @@
   {
     "fullPath": "/main.py",
     "name": "main.py",
-    "isDir": false,
-    "depth": 0
-  },
-  {
-    "fullPath": "/process.py",
-    "name": "process.py",
     "isDir": false,
     "depth": 0
   },

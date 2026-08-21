@@ -1,11 +1,29 @@
-# Device: LoRa protocol state, ACK/retransmit, and LED rendering.
+# App: LoRa protocol state, ACK/retransmit, and LED rendering.
 import time
 import lora_msg
-from config_hardware import *
-from config_protocol import *
+from config_hardware import (
+    leds,
+    LED_NOTIFY_MS,
+    LED_MODE_STATIC,
+    LED_MODE_BLINK_SLOW,
+    LED_MODE_BLINK_FAST,
+    BLINK_INTERVAL_MS,
+)
+from config_protocol import (
+    CONFIRMATION_YES,
+    CONFIRMATION_NO,
+    STATUS_FUEL,
+    STATUS_PARKING,
+    STATUS_EMERGENCY,
+    ACK_TIMEOUT_MS,
+    TX_ATTEMPTS,
+    ACK_ATTEMPTS,
+    SEQ_MAX,
+    SEQ_HALF,
+)
 
 
-class Device:
+class App:
     def __init__(self, sender_id, buddies, modem):
         self.sender_id = sender_id
         self.buddies = buddies
@@ -13,20 +31,34 @@ class Device:
         self.status = 0x00
         self.confirmation = 0x00
         self.seq = 1
+        self.last_tx_seq = None
         self.rx_active = False
-        self.is_communication_broken = False
+        self._communication_broken = False
         self.ack_timeout = ACK_TIMEOUT_MS
-        self.reset_ack_timeout()
+        self.ack_timeout_at = None
         self.waiting_for_ack_from = {}
         self.reset_waiting_for_ack_from()
         self.waiting_for_clear_ack = False
         self.last_rx_seq = {}  # buddy_id -> last processed seq
         self._pending_tx = None  # reliable STATE/CLEAR retransmit state
         self.led_states = {
-            name: {"on": False, "mode": LED_MODE_STATIC, "blink_on": False, "last_toggle": 0}
+            name: {"on": False, "mode": LED_MODE_STATIC}
             for name in leds
         }
         self._led_notify = None  # non-blocking flash sequence
+
+    @property
+    def communication_broken(self):
+        return self._communication_broken
+
+    @communication_broken.setter
+    def communication_broken(self, broken):
+        if self._communication_broken == broken:
+            return
+        print(f"Communication broken: {broken}")
+        self._communication_broken = broken
+        if broken:
+            self.set_all_leds_on()
 
     # --------- Protocol helpers ---------
     @staticmethod
@@ -43,7 +75,7 @@ class Device:
 
     # --------- Protocol functions ---------
     def reset_waiting_for_ack_from(self):
-        self.waiting_for_ack_from = {buddy: False for buddy in self.buddies}
+        self.waiting_for_ack_from = {buddy: None for buddy in self.buddies}
         self.reset_ack_timeout()
         self._pending_tx = None
 
@@ -52,39 +84,49 @@ class Device:
         self.reset_waiting_for_ack_from()
 
     def waiting_for_ack(self):
-        for buddy in self.waiting_for_ack_from:
-            if self.waiting_for_ack_from[buddy]:
-                return True
-        return False
+        return any(seq is not None for seq in self.waiting_for_ack_from.values())
 
     def set_ack_timeout(self):
         self.ack_timeout_at = time.ticks_add(time.ticks_ms(), self.ack_timeout)
 
     def reset_ack_timeout(self):
-        self.ack_timeout_at = False
+        self.ack_timeout_at = None
 
     def start_listening(self):
-        if not self.rx_active:
+        if self.rx_active:
+            return
+        try:
             self.modem.start_recv(continuous=True)
             self.rx_active = True
+        except Exception as e:
+            print(f"LoRa start_recv failed: {e}")
+            self.rx_active = False
+            self.communication_broken = True
 
     def check_rx(self):
         if not self.rx_active:
             return
-        result = self.modem.poll_recv()
+        try:
+            result = self.modem.poll_recv()
+        except Exception as e:
+            print(f"LoRa poll_recv failed: {e}")
+            self.rx_active = False
+            self.communication_broken = True
+            return
         if result and result is not True:
             parsed = lora_msg.unpack(result)
             if parsed:
                 buddy_id, sequence, message_type, data = parsed
-                print(f"RX from={buddy_id} seq={sequence} type={lora_msg.MSG_TYPE_NAMES.get(message_type)} data={hex(data)} RSSI={result.rssi}")
+                type_name = lora_msg.MSG_TYPE_NAMES.get(message_type)
+                print(f"RX from={buddy_id} seq={sequence} type={type_name} data={hex(data)} RSSI={result.rssi}")
                 if message_type == lora_msg.MSG_TYPE_ACK:
                     self.process_incoming_ack(buddy_id, sequence, data)
                 else:
-                    self.communication_broken(False)
+                    self.communication_broken = False
                     last = self.last_rx_seq.get(buddy_id)
                     if self.seq_is_newer(sequence, last):
                         self.last_rx_seq[buddy_id] = sequence
-                        self.process_incoming_message(buddy_id, sequence, message_type, data)
+                        self.process_incoming_message(message_type, data)
                     else:
                         print(f"Duplicate/old seq={sequence} from={buddy_id} (last={last}) — ACK only")
                     self.send_ACK(sequence)
@@ -93,19 +135,19 @@ class Device:
         if buddy_id not in self.waiting_for_ack_from:
             return
         expected = self.waiting_for_ack_from[buddy_id]
-        # False means already ACKed; anything else must match seq
-        if expected is False or expected != sequence:
+        # None means already ACKed / not waiting; otherwise must match seq
+        if expected is None or expected != sequence:
             return
-        self.waiting_for_ack_from[buddy_id] = False
+        self.waiting_for_ack_from[buddy_id] = None
         print(f"ACK received from={buddy_id} seq={sequence} attempt={data}")
         if not self.waiting_for_ack():
             self._pending_tx = None
 
-    def process_incoming_message(self, buddy_id, sequence, message_type, data):
+    def process_incoming_message(self, message_type, data):
         if message_type == lora_msg.MSG_TYPE_STATE:
             self.set_state(byte=data)
             return
-        elif message_type == lora_msg.MSG_TYPE_CLEAR:
+        if message_type == lora_msg.MSG_TYPE_CLEAR:
             self.clear_state()
             return
         print(f"Unknown message type: {message_type}, ACK send, but message not processed")
@@ -116,15 +158,22 @@ class Device:
     def _send_packet(self, msg_type, seq, data):
         self.rx_active = False
         msg = lora_msg.pack(self.sender_id, seq, msg_type, data)
-        self.modem.send(msg)
+        try:
+            self.modem.send(msg)
+        except Exception as e:
+            print(f"LoRa send failed: {e}")
+            self.communication_broken = True
 
     def _begin_reliable_tx(self, msg_type, data, clear_ack=False):
         """Send STATE/CLEAR and schedule retransmits until ACKed or timeout."""
         if not self.is_configured():
             print("Cannot TX: sender_id is 0 (not configured)")
             return
-        self.communication_broken(False)
+        if not self.buddies:
+            print("No buddies configured — TX will not wait for ACKs")
+        self.communication_broken = False
         seq = self.seq
+        self.last_tx_seq = seq
         self._send_packet(msg_type, seq, data)
         type_name = lora_msg.MSG_TYPE_NAMES.get(msg_type, hex(msg_type))
         print(f"TX seq={seq} type={type_name} data={data:02x} (1/{TX_ATTEMPTS})")
@@ -213,7 +262,7 @@ class Device:
             self.set_led_on(name)
 
     def update_led_mode(self, led_name):
-        if self.is_communication_broken:
+        if self.communication_broken:
             self.led_states[led_name]["mode"] = LED_MODE_BLINK_FAST
         elif self.waiting_for_ack():
             self.led_states[led_name]["mode"] = LED_MODE_BLINK_SLOW
@@ -259,7 +308,7 @@ class Device:
     def update_leds_state(self):
         if self._led_notify is not None:
             return
-        if self.is_communication_broken:
+        if self.communication_broken:
             return
         self.set_all_leds_off()
         if self.waiting_for_clear_ack:
@@ -281,17 +330,17 @@ class Device:
     def check_timers(self):
         if self.waiting_for_ack():
             self.check_retransmit()
-            if self.ack_timeout_at and time.ticks_diff(time.ticks_ms(), self.ack_timeout_at) > 0:
+            if self.ack_timeout_at is not None and time.ticks_diff(time.ticks_ms(), self.ack_timeout_at) > 0:
                 self.clear_state()
-                self.communication_broken(True)
+                self.communication_broken = True
                 self.reset_waiting_for_ack_from()
                 print("Timeout waiting for ACKs")
-        elif self.ack_timeout_at:
-            # all ACKs received before timeout
+        elif self.ack_timeout_at is not None:
+            # all ACKs received before timeout (or no buddies to wait for)
             self.reset_ack_timeout()
             self.waiting_for_clear_ack = False
             self._pending_tx = None
-            self.communication_broken(False)
+            self.communication_broken = False
 
     # --------- State functions ---------
     def clear_state(self):
@@ -311,13 +360,3 @@ class Device:
             self.status = status
         if confirmation is not None:
             self.confirmation = confirmation
-
-    def communication_broken(self, broken=None):
-        if broken is None:
-            return self.is_communication_broken
-        if self.is_communication_broken == broken:
-            return
-        print(f"Communication broken: {broken}")
-        self.is_communication_broken = broken
-        if broken:
-            self.set_all_leds_on()

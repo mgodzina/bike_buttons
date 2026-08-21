@@ -8,6 +8,10 @@ VALID_DEVICE_IDS = (1, 2, 3, 4)
 VALID_SENDER_IDS = (0, 1, 2, 3, 4)
 
 
+def _defaults():
+    return {"sender_id": DEFAULT_SENDER_ID, "devices": list(DEFAULT_DEVICES)}
+
+
 def _clean_devices(devices):
     if not isinstance(devices, list):
         return list(DEFAULT_DEVICES)
@@ -17,7 +21,7 @@ def _clean_devices(devices):
             print("Ignoring device id 0 (reserved = not configured)")
             continue
         if d not in VALID_DEVICE_IDS:
-            print("Ignoring invalid device id:", d)
+            print(f"Ignoring invalid device id: {d}")
             continue
         if d not in cleaned:
             cleaned.append(d)
@@ -30,7 +34,7 @@ def _clean_sender_id(sender_id):
     except (TypeError, ValueError):
         return DEFAULT_SENDER_ID
     if sender_id not in VALID_SENDER_IDS:
-        print("Invalid sender_id", sender_id, "; using", DEFAULT_SENDER_ID)
+        print(f"Invalid sender_id {sender_id}; using {DEFAULT_SENDER_ID}")
         return DEFAULT_SENDER_ID
     return sender_id
 
@@ -41,17 +45,21 @@ def load():
         with open(CONFIG_FILE) as f:
             data = json.load(f)
     except OSError:
-        cfg = {"sender_id": DEFAULT_SENDER_ID, "devices": list(DEFAULT_DEVICES)}
+        cfg = _defaults()
         save(cfg["sender_id"], cfg["devices"])
-        print("Created", CONFIG_FILE, cfg)
+        print(f"Created {CONFIG_FILE} {cfg}")
         return cfg
     except ValueError as e:
-        print("Invalid", CONFIG_FILE, "-", e, "; using defaults")
-        return {"sender_id": DEFAULT_SENDER_ID, "devices": list(DEFAULT_DEVICES)}
+        print(f"Invalid {CONFIG_FILE} - {e}; rewriting defaults")
+        cfg = _defaults()
+        save(cfg["sender_id"], cfg["devices"])
+        return cfg
 
     if not isinstance(data, dict):
-        print("Invalid", CONFIG_FILE, "root; using defaults")
-        return {"sender_id": DEFAULT_SENDER_ID, "devices": list(DEFAULT_DEVICES)}
+        print(f"Invalid {CONFIG_FILE} root; rewriting defaults")
+        cfg = _defaults()
+        save(cfg["sender_id"], cfg["devices"])
+        return cfg
 
     sender_id = _clean_sender_id(data.get("sender_id", DEFAULT_SENDER_ID))
     devices = _clean_devices(data.get("devices", DEFAULT_DEVICES))
@@ -65,17 +73,5 @@ def save(sender_id, devices):
         devices = [d for d in devices if d != 0]
     with open(CONFIG_FILE, "w") as f:
         json.dump({"sender_id": sender_id, "devices": devices}, f)
-    print("Saved", CONFIG_FILE, "sender_id:", sender_id, "devices:", devices)
+    print(f"Saved {CONFIG_FILE} sender_id: {sender_id} devices: {devices}")
     return {"sender_id": sender_id, "devices": devices}
-
-
-# Backwards-compatible helpers
-def load_devices():
-    return load()["devices"]
-
-
-def save_devices(devices, sender_id=None):
-    cfg = load()
-    if sender_id is None:
-        sender_id = cfg["sender_id"]
-    return save(sender_id, devices)

@@ -1,12 +1,16 @@
 {
   "version": 1,
-  "syncId": "5d57f075-b105-4a9c-89e4-b542cc94006a",
+  "syncId": "2272f146-870d-4519-95a5-ce895fa41140",
   "root": "/home/mgodzina/dev/esp32_micropython",
-  "generatedAt": 1787247308015,
+  "generatedAt": 1787297847553,
   "files": {
+    "app.py": {
+      "size": 12874,
+      "mtime": 1787295191350
+    },
     "ble_terminal.py": {
-      "size": 7101,
-      "mtime": 1787245459966
+      "size": 7093,
+      "mtime": 1787295254071
     },
     "boot.py": {
       "size": 139,
@@ -25,8 +29,8 @@
       "mtime": 1787242592230
     },
     "hardware.py": {
-      "size": 3103,
-      "mtime": 1787245433308
+      "size": 2896,
+      "mtime": 1787295238640
     },
     "lib/DIYables_MicroPython_Button/DIYables_MicroPython_Button.py": {
       "size": 4789,
@@ -61,20 +65,16 @@
       "mtime": 1787215215485
     },
     "main.py": {
-      "size": 1717,
-      "mtime": 1787247168605
-    },
-    "process.py": {
-      "size": 11890,
-      "mtime": 1787245437546
+      "size": 1690,
+      "mtime": 1787295253087
     },
     "system_configurator.py": {
-      "size": 2591,
-      "mtime": 1787230632366
+      "size": 2415,
+      "mtime": 1787295253907
     },
     "terminal.py": {
-      "size": 8924,
-      "mtime": 1787244658791
+      "size": 9849,
+      "mtime": 1787297804263
     }
   }
 }
