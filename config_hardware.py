@@ -3,31 +3,27 @@ Board wiring and low-level hardware constants (Heltec Wireless Stick Lite V3).
 
 Defines GPIO pin numbers, the ``leds`` Pin map, blink timing, and which button
 toggles BLE on long press. Instantiating this module creates LED output pins.
+
+Pin map matches the final PCB (socketed Heltec headers). USER (GPIO0) and
+info LED (GPIO35) are the Heltec onboard PRG button and LED — not PCB parts.
 """
 from machine import Pin
 
-# ----- Pin assignments -----
-# Breadboard / temporary mapping (override final board wiring here).
-PIN_LED_INFO = 2
-PIN_BTN_USER = 17
-PIN_BTN_1 = 5
-PIN_BTN_2 = 6
-PIN_BTN_3 = 0
-PIN_BTN_4 = 18
-PIN_BTN_5 = 19
-PIN_BTN_6 = 20
-PIN_LED_1 = 21   # yes
-PIN_LED_2 = 1    # no
-PIN_LED_3 = 35   # clear (onboard LED for now)
-PIN_LED_4 = 45   # fuel
-PIN_LED_5 = 46   # parking
-PIN_LED_6 = 3    # emergency
-
-# Final board targets (for reference when leaving breadboard):
-# PIN_LED_INFO = 35
-# PIN_BTN_USER = 0
-# PIN_BTN_3 = 17
-# PIN_LED_3 = 2
+# ----- Pin assignments (final PCB / breadboard) -----
+PIN_LED_INFO = 35   # Heltec onboard LED
+PIN_BTN_USER = 0    # also Heltec PRG; hold at reset may enter download mode
+PIN_BTN_1 = 5       # YES
+PIN_BTN_2 = 6       # NO
+PIN_BTN_3 = 17      # CLEAR
+PIN_BTN_4 = 18      # FUEL
+PIN_BTN_5 = 19      # PARKING
+PIN_BTN_6 = 20      # EMERGENCY
+PIN_LED_1 = 21      # yes
+PIN_LED_2 = 1       # no
+PIN_LED_3 = 2       # clear
+PIN_LED_4 = 45      # fuel
+PIN_LED_5 = 46      # parking
+PIN_LED_6 = 3       # emergency
 
 # ----- LEDs -----
 leds = {
@@ -53,5 +49,5 @@ BLINK_INTERVAL_MS = {
 
 # ----- BLE toggle (hold button) -----
 # Change BLE_TOGGLE_BTN to "btn_1" … "btn_6" to use a different key.
-BLE_TOGGLE_BTN = "btn_user"
+BLE_TOGGLE_BTN = "btn_1"
 BLE_TOGGLE_HOLD_MS = 5000

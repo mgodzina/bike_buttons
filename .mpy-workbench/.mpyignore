@@ -2,6 +2,7 @@
 # Paths are relative to the workspace root.
 
 firmware/
+kicad/
 
 # VCS
 .git/
