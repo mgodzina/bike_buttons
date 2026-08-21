@@ -1,5 +1,9 @@
-# Nordic UART Service (BLE) for phone terminal access.
-# Session API: configure / start / stop / toggle / get
+"""
+Nordic UART Service (BLE) for phone terminal access.
+
+Session API: ``configure`` / ``start`` / ``stop`` / ``toggle`` / ``get``.
+Mirrors ``print`` output to connected centrals when a session is active.
+"""
 
 import os
 import struct
@@ -39,9 +43,26 @@ _TX_BUFFER_MAX = const(1024)
 
 
 def _advertising_payload(name):
+    """
+    Build a BLE advertising payload including flags, name, and appearance.
+
+    :param name: Device name string (must fit in the 31-byte adv limit).
+    :type name: str
+    :return: Advertising payload bytes.
+    :rtype: bytearray
+    :raises ValueError: If the packed payload exceeds 31 bytes.
+    """
     payload = bytearray()
 
     def append(adv_type, value):
+        """
+        Append one AD structure to the payload.
+
+        :param adv_type: GAP advertising data type byte.
+        :type adv_type: int
+        :param value: Raw value bytes for this AD field.
+        :type value: bytes
+        """
         nonlocal payload
         payload += struct.pack("BB", len(value) + 1, adv_type) + value
 
@@ -55,7 +76,19 @@ def _advertising_payload(name):
 
 
 class BleTerminal:
+    """
+    Nordic UART BLE peripheral with RX buffer and queued TX notifies.
+    """
+
     def __init__(self, name="lora-cfg", rxbuf=128):
+        """
+        Activate BLE, register the UART service, and start advertising.
+
+        :param name: Advertising / device name.
+        :type name: str
+        :param rxbuf: GATTS write buffer size for the RX characteristic.
+        :type rxbuf: int
+        """
         self._ble = bluetooth.BLE()
         self._ble.active(True)
         self._ble.irq(self._irq)
@@ -72,6 +105,14 @@ class BleTerminal:
         print("BLE UART advertising as:", name)
 
     def _irq(self, event, data):
+        """
+        BLE IRQ handler for connect, disconnect, and GATTS writes.
+
+        :param event: IRQ event code.
+        :type event: int
+        :param data: Event-specific tuple from the bluetooth stack.
+        :type data: tuple
+        """
         if event == _IRQ_CENTRAL_CONNECT:
             conn_handle, _, _ = data
             self._connections.add(conn_handle)
@@ -88,12 +129,32 @@ class BleTerminal:
                 self._rx_buffer += self._ble.gatts_read(self._rx_handle)
 
     def _advertise(self, interval_us=500000):
+        """
+        Start or restart GAP advertising with the stored payload.
+
+        :param interval_us: Advertising interval in microseconds.
+        :type interval_us: int
+        """
         self._ble.gap_advertise(interval_us, adv_data=self._payload)
 
     def any(self):
+        """
+        Number of bytes waiting in the RX buffer.
+
+        :return: Pending RX byte count.
+        :rtype: int
+        """
         return len(self._rx_buffer)
 
     def read(self, n=None):
+        """
+        Consume up to ``n`` bytes from the RX buffer.
+
+        :param n: Max bytes to read, or None for the whole buffer.
+        :type n: int or None
+        :return: Bytes read (may be empty).
+        :rtype: bytes
+        """
         if n is None:
             n = len(self._rx_buffer)
         if n <= 0:
@@ -102,12 +163,26 @@ class BleTerminal:
         self._rx_buffer = self._rx_buffer[n:]
         return data
 
-    # dupterm stream API: no input from BLE here (USB/stdin keeps REPL input)
     def readinto(self, buf):
+        """
+        dupterm stream API stub: BLE does not feed REPL input here.
+
+        :param buf: Destination buffer (unused).
+        :type buf: bytearray
+        :return: Always None (no data).
+        :rtype: None
+        """
         return None
 
     def write(self, data):
-        """Queue text for BLE notify (flushed by poll_tx from the main loop)."""
+        """
+        Queue text for BLE notify (flushed by ``poll_tx`` from the main loop).
+
+        :param data: String or bytes to send to connected centrals.
+        :type data: str or bytes
+        :return: Number of bytes accepted (0 if nothing to write).
+        :rtype: int
+        """
         if not self._connections:
             return len(data) if data else 0
         if isinstance(data, str):
@@ -118,7 +193,9 @@ class BleTerminal:
         return len(data)
 
     def poll_tx(self):
-        """Send queued stdout chunks over BLE. Call from main loop."""
+        """
+        Send queued stdout chunks over BLE. Call from the main loop.
+        """
         if not self._connections or not self._tx_buffer:
             return
         sent = 0
@@ -133,7 +210,11 @@ class BleTerminal:
             sent += 1
 
     def attach_stdout(self):
-        """Mirror print() to BLE without replacing the USB console."""
+        """
+        Mirror ``print()`` to BLE without replacing the USB console.
+
+        Prefers a second ``dupterm`` slot; falls back to wrapping ``builtins.print``.
+        """
         if self._stdout_attached:
             return
         # Prefer a second dupterm slot so USB (slot 0) stays intact.
@@ -149,6 +230,15 @@ class BleTerminal:
         self._orig_print = builtins.print
 
         def hooked_print(*args, sep=" ", end="\n"):
+            """
+            Print to the original console and queue the same text for BLE.
+
+            :param args: Values to print.
+            :param sep: Separator between values.
+            :type sep: str
+            :param end: Line ending.
+            :type end: str
+            """
             self._orig_print(*args, sep=sep, end=end)
             try:
                 parts = [str(a) for a in args]
@@ -160,6 +250,9 @@ class BleTerminal:
         self._stdout_attached = True
 
     def close(self):
+        """
+        Detach stdout mirroring, disconnect centrals, and deactivate BLE.
+        """
         if self._stdout_attached:
             try:
                 os.dupterm(None, 1)
@@ -185,7 +278,16 @@ _on_stop = None
 
 
 def configure(name=None, on_start=None, on_stop=None):
-    """Set advertising name (str or callable) and optional start/stop hooks."""
+    """
+    Set advertising name (str or callable) and optional start/stop hooks.
+
+    :param name: Fixed name, or callable returning a name at start time.
+    :type name: str or callable or None
+    :param on_start: Called after a successful ``start()``, or None.
+    :type on_start: callable or None
+    :param on_stop: Called after ``stop()``, or None.
+    :type on_stop: callable or None
+    """
     global _name, _on_start, _on_stop
     if name is not None:
         _name = name
@@ -196,16 +298,40 @@ def configure(name=None, on_start=None, on_stop=None):
 
 
 def _resolve_name(name=None):
+    """
+    Resolve the advertising name from an override or configured value.
+
+    :param name: Explicit name override, or None to use configured name.
+    :type name: str or None
+    :return: Advertising name string.
+    :rtype: str
+    """
     if name is not None:
         return name
     return _name() if callable(_name) else _name
 
 
 def get():
+    """
+    Return the active BLE session instance, if any.
+
+    :return: Current ``BleTerminal``, or None if BLE is off.
+    :rtype: BleTerminal or None
+    """
     return _instance
 
 
 def start(name=None, mirror_stdout=True):
+    """
+    Start a BLE UART session if one is not already running.
+
+    :param name: Optional advertising name override.
+    :type name: str or None
+    :param mirror_stdout: If True, attach print mirroring to BLE.
+    :type mirror_stdout: bool
+    :return: The active ``BleTerminal`` instance.
+    :rtype: BleTerminal
+    """
     global _instance
     if _instance is not None:
         return _instance
@@ -220,6 +346,9 @@ def start(name=None, mirror_stdout=True):
 
 
 def stop():
+    """
+    Stop the active BLE session and run the configured stop hook.
+    """
     global _instance
     if _instance is None:
         return
@@ -231,6 +360,9 @@ def stop():
 
 
 def toggle():
+    """
+    Start BLE if off, otherwise stop it.
+    """
     if _instance is None:
         start()
     else:

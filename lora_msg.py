@@ -1,3 +1,6 @@
+"""
+LoRa packet pack/unpack and Heltec Wireless Stick Lite V3 modem factory.
+"""
 import struct
 from machine import SPI, Pin
 from lora import SX1262
@@ -24,15 +27,37 @@ MSG_TYPE_CLEAR = 0x03
 MSG_TYPE_NAMES = {
     MSG_TYPE_STATE: "STATE",
     MSG_TYPE_ACK: "ACK",
-    MSG_TYPE_CLEAR: "CLEAR"
+    MSG_TYPE_CLEAR: "CLEAR",
 }
 
 
 def pack(sender_id, seq, msg_type, data):
+    """
+    Pack a 5-byte application LoRa frame.
+
+    :param sender_id: Sender device id (1 byte).
+    :type sender_id: int
+    :param seq: Sequence number (2 bytes, big-endian).
+    :type seq: int
+    :param msg_type: Message type (STATE / ACK / CLEAR).
+    :type msg_type: int
+    :param data: Payload data byte.
+    :type data: int
+    :return: Packed frame bytes.
+    :rtype: bytes
+    """
     return struct.pack(MSG_FMT, sender_id, seq, msg_type, data)
 
 
 def unpack(raw):
+    """
+    Unpack a frame from modem RX bytes.
+
+    :param raw: Received buffer (must be at least ``MSG_SIZE`` bytes).
+    :type raw: bytes or bytearray
+    :return: ``(sender_id, seq, msg_type, data)``, or None if too short.
+    :rtype: tuple or None
+    """
     if len(raw) < MSG_SIZE:
         return None
     sender_id, seq, msg_type, data = struct.unpack(MSG_FMT, raw[:MSG_SIZE])
@@ -40,6 +65,20 @@ def unpack(raw):
 
 
 def create_modem(freq_khz=868000, sf=7, bw="125", output_power=14):
+    """
+    Create and configure an SX1262 modem for the Heltec V3 pinout.
+
+    :param freq_khz: RF frequency in kHz.
+    :type freq_khz: int
+    :param sf: Spreading factor.
+    :type sf: int
+    :param bw: Bandwidth string accepted by the lora driver (e.g. ``"125"``).
+    :type bw: str
+    :param output_power: TX power in dBm.
+    :type output_power: int
+    :return: Configured ``SX1262`` instance.
+    :rtype: lora.SX1262
+    """
     lora_cfg = {
         "freq_khz": freq_khz,
         "sf": sf,

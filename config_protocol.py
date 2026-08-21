@@ -1,4 +1,9 @@
-# Application / LoRa payload and reliable-delivery constants.
+"""
+Application / LoRa payload and reliable-delivery constants.
+
+Status lives in the low nibble; confirmation in the high nibble of the STATE
+data byte. ACK/TX attempt counts and sequence wrap helpers live here too.
+"""
 
 # ----- Message payload -----
 CONFIRMATION_YES = 0x10

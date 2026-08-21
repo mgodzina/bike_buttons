@@ -1,4 +1,8 @@
-# Persistent network config on the MicroPython flash filesystem.
+"""
+Persistent network config on the MicroPython flash filesystem.
+
+Stores ``sender_id`` and the ``devices`` buddy list in ``config.json``.
+"""
 import json
 
 CONFIG_FILE = "config.json"
@@ -9,10 +13,24 @@ VALID_SENDER_IDS = (0, 1, 2, 3, 4)
 
 
 def _defaults():
+    """
+    Build a fresh default config dict.
+
+    :return: ``{"sender_id": ..., "devices": [...]}``.
+    :rtype: dict
+    """
     return {"sender_id": DEFAULT_SENDER_ID, "devices": list(DEFAULT_DEVICES)}
 
 
 def _clean_devices(devices):
+    """
+    Filter a devices list to unique valid ids (1-4), dropping 0 and junk.
+
+    :param devices: Raw devices value from JSON or caller.
+    :type devices: list or object
+    :return: Cleaned device id list.
+    :rtype: list
+    """
     if not isinstance(devices, list):
         return list(DEFAULT_DEVICES)
     cleaned = []
@@ -29,6 +47,14 @@ def _clean_devices(devices):
 
 
 def _clean_sender_id(sender_id):
+    """
+    Coerce and validate a sender id, falling back to the default.
+
+    :param sender_id: Raw sender id from JSON or caller.
+    :type sender_id: object
+    :return: Valid sender id in ``VALID_SENDER_IDS``.
+    :rtype: int
+    """
     try:
         sender_id = int(sender_id)
     except (TypeError, ValueError):
@@ -40,7 +66,12 @@ def _clean_sender_id(sender_id):
 
 
 def load():
-    """Return dict: {"sender_id": int, "devices": [int, ...]}."""
+    """
+    Load config from flash, creating or rewriting the file if needed.
+
+    :return: Dict with keys ``sender_id`` (int) and ``devices`` (list of int).
+    :rtype: dict
+    """
     try:
         with open(CONFIG_FILE) as f:
             data = json.load(f)
@@ -67,6 +98,16 @@ def load():
 
 
 def save(sender_id, devices):
+    """
+    Validate and write config to ``CONFIG_FILE``.
+
+    :param sender_id: Device id to store (0 = not configured).
+    :type sender_id: int
+    :param devices: Buddy/device list (0 is stripped if present).
+    :type devices: list
+    :return: The cleaned config dict that was written.
+    :rtype: dict
+    """
     sender_id = _clean_sender_id(sender_id)
     devices = _clean_devices(devices)
     if 0 in devices:

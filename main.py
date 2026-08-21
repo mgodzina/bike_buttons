@@ -1,4 +1,9 @@
-# LoRa driver is vendored in lib/lora (lora-sx126x + lora-sync from micropython-lib).
+"""
+Firmware entry point for the Heltec LoRa buddy messaging application.
+
+Loads identity from flash, wires buttons / BLE / App, then runs the main loop.
+The LoRa driver is vendored in ``lib/lora`` (lora-sx126x + lora-sync).
+"""
 import time
 import lora_msg
 import ble_terminal

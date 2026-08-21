@@ -1,4 +1,8 @@
-# USB / BLE character terminal for config and simulated button presses.
+"""
+USB / BLE character terminal for config and simulated button presses.
+
+Also provides ``StatePrinter`` for boxed status dumps when app state changes.
+"""
 import sys
 import select
 import system_configurator as config
@@ -12,6 +16,13 @@ from config_protocol import (
 
 
 class Terminal:
+    """
+    Line/char UI over USB stdin and optional BLE UART.
+
+    Supports button simulation keys, devices list mode (``d``), sender id mode
+    (``i``), and BLE toggle (``b``).
+    """
+
     BUTTON_MAP = {
         "0": "btn_user",
         "u": "btn_user",
@@ -24,6 +35,16 @@ class Terminal:
     }
 
     def __init__(self, sender_id, devices, on_ble_toggle=None):
+        """
+        Create a terminal with initial identity from flash config.
+
+        :param sender_id: This device id (0 = not configured).
+        :type sender_id: int
+        :param devices: Full device list including self when configured.
+        :type devices: list
+        :param on_ble_toggle: Callable invoked for key ``b``, or None.
+        :type on_ble_toggle: callable or None
+        """
         self.sender_id = sender_id
         self.devices = list(devices)
         self.buddies = [i for i in self.devices if i != self.sender_id]
@@ -34,11 +55,24 @@ class Terminal:
         self._stdin_poll.register(sys.stdin, select.POLLIN)
 
     def print_help(self):
+        """
+        Print the short keybinding help text to the console.
+        """
         print("Terminal: 0/u=user 1=YES 2=NO 3=CLEAR 4=FUEL 5=PARKING 6=EMERGENCY")
         print("          d=devices  |  i=sender id  |  b=toggle BLE")
         print("          one-shot: d1,2,3  or  i1")
 
     def poll(self, buttons, app, ble=None):
+        """
+        Non-blocking read of USB and optional BLE input characters.
+
+        :param buttons: Button handler used for simulated presses.
+        :type buttons: hardware.Buttons
+        :param app: Application instance for config and state actions.
+        :type app: app.App
+        :param ble: Active ``BleTerminal`` session, or None if BLE is off.
+        :type ble: ble_terminal.BleTerminal or None
+        """
         events = self._stdin_poll.poll(0)
         if events:
             ch = sys.stdin.read(1)
@@ -57,6 +91,14 @@ class Terminal:
                 self._handle_char(ch, buttons, app)
 
     def _parse_devices_line(self, line):
+        """
+        Parse a devices-mode line into a list of unique ids 1-4.
+
+        :param line: Raw input such as ``"1,2,3"`` or ``"123"``.
+        :type line: str
+        :return: Device id list, or None if the line is invalid.
+        :rtype: list or None
+        """
         devices = []
         for ch in line:
             if ch in (" ", ",", ";", "\t"):
@@ -70,6 +112,16 @@ class Terminal:
         return devices
 
     def _apply_devices(self, devices, app):
+        """
+        Validate, persist, and apply a new devices list.
+
+        :param devices: Proposed device ids (must not include 0).
+        :type devices: list
+        :param app: Application instance to update buddies on.
+        :type app: app.App
+        :return: True if saved and applied.
+        :rtype: bool
+        """
         if 0 in devices:
             print("Device id 0 is not allowed in the buddy/devices list")
             return False
@@ -85,6 +137,16 @@ class Terminal:
         return True
 
     def _apply_sender_id(self, sender_id, app):
+        """
+        Validate, persist, and apply a new sender id.
+
+        :param sender_id: New id in ``VALID_SENDER_IDS`` (0 disables TX).
+        :type sender_id: int
+        :param app: Application instance whose ``sender_id`` is updated.
+        :type app: app.App
+        :return: True if saved and applied.
+        :rtype: bool
+        """
         sender_id = int(sender_id)
         if sender_id not in config.VALID_SENDER_IDS:
             print(f"Invalid sender id: {sender_id} (use 0-4)")
@@ -105,6 +167,16 @@ class Terminal:
         return True
 
     def _handle_char(self, ch, buttons, app):
+        """
+        Handle one input character in normal or config modes.
+
+        :param ch: Single character from USB or BLE.
+        :type ch: str
+        :param buttons: Button handler for simulated presses.
+        :type buttons: hardware.Buttons
+        :param app: Application instance for config and actions.
+        :type app: app.App
+        """
         if not ch:
             return
 
@@ -192,16 +264,27 @@ class Terminal:
         buttons.execute_button(app, name)
 
 
-# ----- State printer class -----
-
 class StatePrinter:
+    """
+    Print a boxed status summary when application state changes.
+    """
+
     def __init__(self):
+        """
+        Initialize previous-state snapshots used for change detection.
+        """
         self.prev_status = None
         self.prev_confirmation = None
         self.prev_waiting_for_ack_from = {}
         self.prev_communication_broken = None
 
     def print_state(self, app):
+        """
+        If relevant fields changed, print a boxed state summary.
+
+        :param app: Application instance to read state from.
+        :type app: app.App
+        """
         changed = (
             self.prev_status != app.status
             or self.prev_confirmation != app.confirmation
@@ -253,7 +336,16 @@ class StatePrinter:
         self.prev_communication_broken = app.communication_broken
 
     def print_box(self, caption, content):
-        # Width matches content lines: ">" + pad + text + pad + "<"
+        """
+        Print ``content`` lines inside a dashed box with start/end captions.
+
+        Width matches content lines: ``>`` + pad + text + pad + ``<``.
+
+        :param caption: Short title used in START/END border lines.
+        :type caption: str
+        :param content: Text lines to show inside the box.
+        :type content: list
+        """
         start_cap = f" START {caption} "
         end_cap = f" END {caption} "
         pad = 1
@@ -262,6 +354,18 @@ class StatePrinter:
         fill = inner + 2 * pad  # characters between the side markers
 
         def border(left, right, cap):
+            """
+            Build one horizontal border line with a centered caption.
+
+            :param left: Left corner character (e.g. ``/`` or ``\\``).
+            :type left: str
+            :param right: Right corner character.
+            :type right: str
+            :param cap: Caption text including surrounding spaces.
+            :type cap: str
+            :return: Complete border line.
+            :rtype: str
+            """
             left_dashes = (fill - len(cap)) // 2
             right_dashes = fill - len(cap) - left_dashes
             return f"{left}{'-' * left_dashes}{cap}{'-' * right_dashes}{right}"

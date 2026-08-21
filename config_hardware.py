@@ -1,4 +1,9 @@
-# Board wiring and low-level hardware constants (Heltec Wireless Stick Lite V3).
+"""
+Board wiring and low-level hardware constants (Heltec Wireless Stick Lite V3).
+
+Defines GPIO pin numbers, the ``leds`` Pin map, blink timing, and which button
+toggles BLE on long press. Instantiating this module creates LED output pins.
+"""
 from machine import Pin
 
 # ----- Pin assignments -----

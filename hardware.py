@@ -1,4 +1,9 @@
-# Physical buttons and hold-to-toggle BLE handling.
+"""
+Physical button scanning and hold-to-toggle BLE handling.
+
+Maps named buttons to ``App`` state/CLEAR actions and detects a long press
+on ``BLE_TOGGLE_BTN`` to start/stop the BLE UART session.
+"""
 import time
 from machine import Pin
 from DIYables_MicroPython_Button import Button
@@ -43,7 +48,14 @@ _BUTTON_STATE = {
 
 
 class Buttons:
+    """
+    Debounced buttons with short-press actions and BLE long-press toggle.
+    """
+
     def __init__(self):
+        """
+        Create Button objects for all configured pins.
+        """
         self._buttons = {
             name: Button(Pin(pin, Pin.IN, Pin.PULL_UP))
             for name, pin in _BTN_PINS
@@ -52,10 +64,19 @@ class Buttons:
         self._ble_hold_fired = False
 
     def loop(self):
+        """
+        Call once per main-loop iteration to update debounce state.
+        """
         for btn in self._buttons.values():
             btn.loop()
 
     def check_buttons(self, app):
+        """
+        Detect presses and dispatch to ``execute_button`` or BLE toggle.
+
+        :param app: Application instance to update / transmit on.
+        :type app: app.App
+        """
         self._check_ble_hold(app)
         for name, btn in self._buttons.items():
             if name == BLE_TOGGLE_BTN:
@@ -64,6 +85,12 @@ class Buttons:
                 self.execute_button(app, name)
 
     def _check_ble_hold(self, app):
+        """
+        Long-press ``BLE_TOGGLE_BTN`` toggles BLE; short press runs its action.
+
+        :param app: Application instance for short-press handling.
+        :type app: app.App
+        """
         btn = self._buttons[BLE_TOGGLE_BTN]
         pressed = btn.get_state() == btn.pressed_state
         now = time.ticks_ms()
@@ -84,6 +111,14 @@ class Buttons:
             self._ble_hold_fired = False
 
     def execute_button(self, app, button_name):
+        """
+        Apply the action for a named button (state TX or CLEAR).
+
+        :param app: Application instance to update / transmit on.
+        :type app: app.App
+        :param button_name: Name such as ``"btn_1"`` or ``"btn_user"``.
+        :type button_name: str
+        """
         if button_name == "btn_user":
             print("User button pressed")
             return
